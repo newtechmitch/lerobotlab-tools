@@ -52,11 +52,10 @@ def convert_datasets(
             result = converter.convert_dataset(repo_id, selected_videos, input_dir, output_dir)
             
             if result['status'] == 'error':
-                print(f"  ✗ {result['message']}")
+                print(f"  Conversion failed")
             elif verbose:
-                print(f"  ✓ {result['message']}")
                 if 'episodes_converted' in result:
-                    print(f"    Episodes converted: {result['episodes_converted']}")
+                    print(f"    Converted {result['episodes_converted']} episodes")
 
     except Exception as e:
         print(f"Error: Conversion failed: {e}", file=sys.stderr)

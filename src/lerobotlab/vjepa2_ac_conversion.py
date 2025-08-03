@@ -30,7 +30,7 @@ class VJEPA2ACConverter:
         """
         self.verbose = verbose
         self.format_name = "V-JEPA2-AC"
-        self.episode_paths = []
+        self.converted_episode_paths = []
         self.total_converted_episodes = 0
         
     def convert_dataset(
@@ -80,21 +80,34 @@ class VJEPA2ACConverter:
         processed_episode_count = 0
 
         try:
-            # TODO: add proper chunking logic
-            for episode_file in sorted((input_path / "data" / "chunk-000").glob("episode_*.parquet")):
-                episode_idx = int(episode_file.stem.split('_')[1])
+            for episode_index in range(dataset_info["total_episodes"]):
+                episode_paths = self.get_episode_paths(dataset_info, selected_videos, episode_index)
+                print(f"  Processing episode {episode_index}")
+                episode_dir_name = self.convert_episode_to_vjepa2_ac(input_path,episode_index,episode_paths, repo_id, video_key, episodes_dir)
+                converted_episode_path = f"episodes/{episode_dir_name}"               
+                if episode_dir_name:            
+                    self.converted_episode_paths.append(converted_episode_path)
                 processed_episode_count += 1
                 self.total_converted_episodes += 1
-                print(f"  Processing episode {episode_idx}")
-                episode_dir_name = self.convert_episode_to_vjepa2_ac(episode_idx, input_path, repo_id, video_key, episodes_dir)
-                episode_path = f"episodes/{episode_dir_name}"               
-                if episode_dir_name:            
-                    self.episode_paths.append(episode_path)
+
+            # Create dataset_list.txt - single file with all episodes
+            dataset_list_path = output_dir / "dataset_list.txt"
+            with open(dataset_list_path, 'w') as f:
+                for episode_path in self.converted_episode_paths:
+                    f.write(f"{episode_path}\n")
+            
+            print(f"\nConsolidation complete!")
+            print(f"Total episodes created: {processed_episode_count}")
+            print(f"Output directory: {output_dir}")
+            print(f"Dataset list saved to: {dataset_list_path}")
+
+
             conversion_result = {
                 'status': 'success',
                 'repo_id': repo_id,
                 'episodes_converted': processed_episode_count,
-            }            
+            }  
+
             return conversion_result                
             
         except Exception as e:
@@ -106,7 +119,7 @@ class VJEPA2ACConverter:
             return error_result
         
     
-    def load_dataset_info(dataset_path: Path) -> Dict:
+    def load_dataset_info(self, dataset_path: Path) -> Dict:
         """Load dataset info from meta/info.json"""
         info_path = dataset_path / "meta" / "info.json"
         if not info_path.exists():
@@ -115,27 +128,48 @@ class VJEPA2ACConverter:
         with open(info_path, 'r') as f:
             return json.load(f)
 
+    def get_episode_paths(self, metadata: Dict, video_keys: List[str], episode_index: int) -> Dict:
+        """Get episode paths from metadata"""
+        episode_chunk = episode_index // metadata["chunks_size"]
 
-    def load_episode_data(dataset_path: Path, episode_idx: int) -> pd.DataFrame:
+        data_path = metadata["data_path"].format(
+            episode_chunk=episode_chunk,
+            episode_index=episode_index
+        )
+
+        video_paths = {
+            key: {
+                "key": key,
+                "path": metadata["video_path"].format(
+                    episode_chunk=episode_chunk,
+                    video_key=key,
+                    episode_index=episode_index
+                )
+            }
+            for key in video_keys
+        }
+        return {
+            "data": data_path,
+            "videos": video_paths
+        }
+
+    def load_episode_data(self, episode_data_path: Path, episode_idx: int) -> pd.DataFrame:
         """Load episode data from parquet file"""
-        episode_file = dataset_path / "data" / "chunk-000" / f"episode_{episode_idx:06d}.parquet"
-        if not episode_file.exists():
-            raise FileNotFoundError(f"Episode file not found: {episode_file}")
+        if not episode_data_path.exists():
+            raise FileNotFoundError(f"Episode file not found: {episode_data_path}")
 
-        return pd.read_parquet(episode_file)
+        return pd.read_parquet(episode_data_path)
 
-    def convert_episode_to_vjepa2_ac(self, episode_idx: int, input_path: Path, repo_id: str, video_key: str, episode_output_dir: Path):
+    def convert_episode_to_vjepa2_ac(self, input_path: Path, episode_idx: int, episode_paths: Dict, repo_id: str, video_key: str, episode_output_dir: Path):
         """Convert a single episode to VJEPA2-AC format"""
         try:
             #dataset info
-            dataset_name = repo_id.replace('/', '+')
-            
-            # Load episode data
-            episode_data = self.load_episode_data(input_path, episode_idx)
+            converted_dataset_dir_name = repo_id.replace('/', '+')
+            episode_data_path = input_path / episode_paths["data"]
+            episode_data = self.load_episode_data(episode_data_path, episode_idx)
             
             # Find corresponding video file
-            videos_dir = input_path / "videos" / "chunk-000" / video_key #only works with under 1000 videos
-            video_path = videos_dir / f"episode_{episode_idx:06d}.mp4"
+            video_path = input_path / episode_paths["videos"][video_key]["path"]
             original_dataset = repo_id
             
             if not video_path.exists():
@@ -143,7 +177,7 @@ class VJEPA2ACConverter:
                 return None
             
             # Create episode directory with dataset name prefix
-            episode_dir_name = f"{dataset_name}-episode_{episode_idx:03d}"
+            episode_dir_name = f"{converted_dataset_dir_name}-episode_{episode_idx:03d}"
             episode_dir = episode_output_dir / episode_dir_name
             episode_dir.mkdir(exist_ok=True)
             
@@ -152,7 +186,7 @@ class VJEPA2ACConverter:
             recordings_dir.mkdir(parents=True, exist_ok=True)
             
             # Copy video file
-            output_video_path = recordings_dir / "front_camera.mp4"
+            output_video_path = recordings_dir / "video.mp4"
             shutil.copy2(video_path, output_video_path)
             
             # Create trajectory.h5
@@ -161,7 +195,7 @@ class VJEPA2ACConverter:
             
             # Create metadata.json
             metadata = self.create_episode_metadata(episode_idx, episode_data,
-                                                trajectory_path, dataset_name, input_path, original_dataset)
+                                                trajectory_path, converted_dataset_dir_name, input_path, original_dataset)
             metadata_path = episode_dir / "metadata.json"
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
@@ -176,13 +210,13 @@ class VJEPA2ACConverter:
 
 
 
-    def create_episode_metadata(episode_idx: int, episode_data: pd.DataFrame,
+    def create_episode_metadata(self, episode_idx: int, episode_data: pd.DataFrame,
                           trajectory_path: Path, dataset_name: str, source_dataset_path: str, original_dataset: str) -> Dict:
         """Create metadata.json content for an episode"""
         metadata = {
             "episode_id": episode_idx,
             "episode_name": f"{dataset_name}-episode_{episode_idx:03d}",
-            "source_dataset_path": source_dataset_path,
+            "source_dataset_path": f"{source_dataset_path}",
             "original_lerobot_dataset": original_dataset,
             "total_frames": len(episode_data),
             "duration_seconds": len(episode_data) / 30.0,  # Assuming 30fps
@@ -190,7 +224,7 @@ class VJEPA2ACConverter:
             "files": {
                 "trajectory": str(trajectory_path.name),
                 "video": {
-                    "front_camera": str(Path("recordings/MP4/front_camera.mp4"))
+                    "front_camera": str(Path("recordings/MP4/video.mp4"))
                 }
             },
             "data_keys": {
@@ -213,9 +247,9 @@ class VJEPA2ACConverter:
             },
             "task": "n/a"  # Based on the dataset
         }
-    
+        return metadata
 
-    def create_trajectory_h5(episode_data: pd.DataFrame, output_path: Path):
+    def create_trajectory_h5(self, episode_data: pd.DataFrame, output_path: Path):
         """Convert episode data to HDF5 trajectory format"""
         with h5py.File(output_path, 'w') as f:
             # Create groups for different data types
@@ -256,11 +290,6 @@ class VJEPA2ACConverter:
             if 'frame_index' in episode_data.columns:
                 frame_indices = episode_data['frame_index'].values
                 metadata_group.create_dataset('frame_index', data=frame_indices)
-
-            # TODO: fix to add correct metadata
-            metadata_group.attrs['total_frames'] = len(episode_data)
-            metadata_group.attrs['episode_length_s'] = len(episode_data) / 30.0  # Assuming 30fps
-            metadata_group.attrs['fps'] = 30
 
 
     def validate_input(self, input_dir: Path, selected_videos: List[str]) -> bool:
