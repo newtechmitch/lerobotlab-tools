@@ -56,7 +56,7 @@ lerobotlab convert selection.json --output-path ./output --input-path ./datasets
 
 **Options:**
 - `--output-path`: Directory where converted datasets will be saved (required)
-- `--input-path`: Directory containing downloaded datasets (optional, will download if not provided)
+- `--input-path`: Directory containing downloaded datasets (required)
 - `--format`: Output format for converted datasets (choices: droid, vjepa2-ac; default: droid)
 - `--verbose, -v`: Enable verbose output
 - `--help`: Show command help

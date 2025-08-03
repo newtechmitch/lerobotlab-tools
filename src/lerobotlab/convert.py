@@ -1,7 +1,7 @@
 """
 LeRobotLab Tools - Convert Module
 
-Handles conversion of robot datasets to different formats (HDF5, Zarr, Parquet).
+Handles conversion of robot datasets to different formats (DROID, V-JEPA2-AC).
 """
 
 import os
@@ -17,20 +17,21 @@ def convert_datasets(
     selection_data: Dict[str, Any],
     output_path: str,
     input_path: str,
-    format: str = 'hdf5',
+    format: str,
     verbose: bool = False
 ) -> None:
     try:
-        # Handle input path
+        output_dir = Path(output_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if verbose:
+            print(f"Created output directory: {output_dir.absolute()}")
+
         input_dir = Path(input_path)
         if not input_dir.exists():
-            raise click.ClickException(f"Input directory does not exist: {input_path} - please download datasets first")
-        
-        # Create output directory if it doesn't exist
-        output_dir = Path(output_path)
-        output_dir.mkdir(parents=True, exist_ok=True)        
+            print(f"Error: Input directory does not exist: {input_path}", file=sys.stderr)
+            sys.exit(1)
  
-        # Get datasets from selection
         datasets = selection_data.get('datasets', [])
         
         if verbose:
@@ -56,14 +57,7 @@ def convert_datasets(
                 print(f"  ✓ {result['message']}")
                 if 'episodes_converted' in result:
                     print(f"    Episodes converted: {result['episodes_converted']}")
-            
 
-        
-        # Clean up temporary downloads if they were created
-        if input_path is None and input_dir.name == "temp_downloads":
-            if verbose:
-                print("Cleaning up temporary download files...")
-        
     except Exception as e:
         print(f"Error: Conversion failed: {e}", file=sys.stderr)
         sys.exit(1)

@@ -125,8 +125,7 @@ def handle_convert(args):
         
         # Validate paths and format
         validate_output_path(args.output_path)
-        if args.input_path:
-            validate_input_path(args.input_path)
+        validate_input_path(args.input_path)
         format_validated = validate_format(args.format)
         
         # Display summary
@@ -194,7 +193,8 @@ def main():
     )
     convert_parser.add_argument(
         '--input-path',
-        help='Directory containing downloaded datasets (will download if not provided)'
+        required=True,
+        help='Directory containing downloaded datasets'
     )
     convert_parser.add_argument(
         '--format',
