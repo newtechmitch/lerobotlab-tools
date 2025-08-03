@@ -6,7 +6,7 @@ Handles conversion of robot datasets to DROID format for robotic learning.
 
 from pathlib import Path
 from typing import Dict, Any, List
-import click
+# Removed click dependency
 
 
 class DROIDConverter:
@@ -48,10 +48,10 @@ class DROIDConverter:
             dict: Conversion result with status and metadata
         """
         if self.verbose:
-            click.echo(f"    Starting {self.format_name} conversion for: {repo_id}")
-            click.echo(f"    Input directory: {input_dir}")
-            click.echo(f"    Output directory: {output_dir}")
-            click.echo(f"    Selected videos: {', '.join(selected_videos)}")
+            print(f"    Starting {self.format_name} conversion for: {repo_id}")
+            print(f"    Input directory: {input_dir}")
+            print(f"    Output directory: {output_dir}")
+            print(f"    Selected videos: {', '.join(selected_videos)}")
         
         try:
             # TODO: Implement actual DROID conversion logic
@@ -77,7 +77,7 @@ class DROIDConverter:
             # Placeholder implementation
             for video_stream in selected_videos:
                 if self.verbose:
-                    click.echo(f"      Processing video stream: {video_stream}")
+                    print(f"      Processing video stream: {video_stream}")
                 
                 # Simulate conversion steps
                 self._process_video_stream(video_stream, input_dir, output_dir)
@@ -97,7 +97,7 @@ class DROIDConverter:
             }
             
             if self.verbose:
-                click.echo(f"    ✓ Conversion completed: {len(selected_videos)} video streams processed")
+                print(f"    ✓ Conversion completed: {len(selected_videos)} video streams processed")
             
             return conversion_result
             
@@ -113,7 +113,7 @@ class DROIDConverter:
             }
             
             if self.verbose:
-                click.echo(f"    ✗ Conversion failed: {str(e)}")
+                print(f"    ✗ Conversion failed: {str(e)}")
             
             return error_result
     
@@ -134,10 +134,10 @@ class DROIDConverter:
         # - Handling multi-camera setups
         
         if self.verbose:
-            click.echo(f"        - Extracting frames from {video_stream}")
-            click.echo(f"        - Applying DROID preprocessing")
-            click.echo(f"        - Converting to DROID observation format")
-            click.echo(f"        - Handling action space conversion")
+            print(f"        - Extracting frames from {video_stream}")
+            print(f"        - Applying DROID preprocessing")
+            print(f"        - Converting to DROID observation format")
+            print(f"        - Handling action space conversion")
     
     def _get_placeholder_episode_count(self) -> int:
         """Get placeholder episode count for demonstration."""
@@ -176,15 +176,15 @@ class DROIDConverter:
         
         if not input_dir.exists():
             if self.verbose:
-                click.echo(f"    ✗ Input directory does not exist: {input_dir}")
+                print(f"    ✗ Input directory does not exist: {input_dir}")
             return False
         
         if not selected_videos:
             if self.verbose:
-                click.echo(f"    ✗ No video streams selected for conversion")
+                print(f"    ✗ No video streams selected for conversion")
             return False
         
         if self.verbose:
-            click.echo(f"    ✓ Input validation passed")
+            print(f"    ✓ Input validation passed")
         
         return True 

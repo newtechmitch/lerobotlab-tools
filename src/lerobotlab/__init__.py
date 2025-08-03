@@ -6,8 +6,7 @@ __version__ = "0.1.0"
 __author__ = "LeRobotLab"
 __email__ = "contact@lerobotlab.com"
 
-from . import cli
 from . import download
 from . import convert
 
-__all__ = ["cli", "download", "convert"]
+__all__ = ["download", "convert"]

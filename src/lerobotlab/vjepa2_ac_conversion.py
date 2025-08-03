@@ -5,7 +5,7 @@ Handles conversion of robot datasets to V-JEPA2-AC format for actor-critic train
 """
 from pathlib import Path
 from typing import Dict, Any, List
-import click
+# Removed click dependency
 import json
 import pandas as pd
 import shutil
@@ -56,10 +56,10 @@ class VJEPA2ACConverter:
         video_key = selected_videos[0]
                 
         if self.verbose:
-            click.echo(f"    Starting {self.format_name} conversion for: {repo_id}")
-            click.echo(f"    Input directory: {input_dir}")
-            click.echo(f"    Output directory: {output_dir}")
-            click.echo(f"    Selected videos: {', '.join(selected_videos)}")
+            print(f"    Starting {self.format_name} conversion for: {repo_id}")
+            print(f"    Input directory: {input_dir}")
+            print(f"    Output directory: {output_dir}")
+            print(f"    Selected videos: {', '.join(selected_videos)}")
         
     
         # Load dataset info
@@ -69,8 +69,12 @@ class VJEPA2ACConverter:
             episodes_dir.mkdir(exist_ok=True)
             dataset_info = self.load_dataset_info(input_path)
         except Exception as e:
-            click.echo(f"Error loading dataset info for {input_path}: {e}")
-            return
+            error_result = {
+                'status': 'error',
+                'repo_id': repo_id,
+                'episodes_converted': 0,
+            }
+            return error_result
     
         # Process each episode in this dataset
         processed_episode_count = 0
@@ -81,7 +85,7 @@ class VJEPA2ACConverter:
                 episode_idx = int(episode_file.stem.split('_')[1])
                 processed_episode_count += 1
                 self.total_converted_episodes += 1
-                click.echo(f"  Processing episode {episode_idx}")
+                print(f"  Processing episode {episode_idx}")
                 episode_dir_name = self.convert_episode_to_vjepa2_ac(episode_idx, input_path, repo_id, video_key, episodes_dir)
                 episode_path = f"episodes/{episode_dir_name}"               
                 if episode_dir_name:            
@@ -277,15 +281,15 @@ class VJEPA2ACConverter:
         
         if not input_dir.exists():
             if self.verbose:
-                click.echo(f"    ✗ Input directory does not exist: {input_dir}")
+                print(f"    ✗ Input directory does not exist: {input_dir}")
             return False
         
         if not selected_videos:
             if self.verbose:
-                click.echo(f"    ✗ No video streams selected for conversion")
+                print(f"    ✗ No video streams selected for conversion")
             return False
         
         if self.verbose:
-            click.echo(f"    ✓ Input validation passed")
+            print(f"    ✓ Input validation passed")
         
         return True 
