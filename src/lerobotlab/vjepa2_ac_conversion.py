@@ -1,0 +1,291 @@
+"""
+LeRobotLab Tools - V-JEPA2-AC Conversion Module
+
+Handles conversion of robot datasets to V-JEPA2-AC format for actor-critic training.
+"""
+from pathlib import Path
+from typing import Dict, Any, List
+import click
+import json
+import pandas as pd
+import shutil
+import h5py
+import numpy as np
+
+
+class VJEPA2ACConverter:
+    """
+    Converter class for transforming robot datasets to V-JEPA2-AC format.
+    
+    V-JEPA2-AC (Video Joint Embedding Predictive Architecture 2 - Actor Critic) 
+    is designed for vision-based robotic learning with temporal prediction.
+    """
+    
+    def __init__(self, verbose: bool = False):
+        """
+        Initialize the V-JEPA2-AC converter.
+        
+        Args:
+            verbose: Whether to enable verbose logging
+        """
+        self.verbose = verbose
+        self.format_name = "V-JEPA2-AC"
+        self.episode_paths = []
+        self.total_converted_episodes = 0
+        
+    def convert_dataset(
+        self,
+        repo_id: str,
+        selected_videos: List[str],
+        input_dir: Path,
+        output_dir: Path
+        ) -> Dict[str, Any]:
+        """
+        Convert a single dataset to V-JEPA2-AC format.
+        
+        Args:
+            repo_id: Repository ID of the dataset (e.g., 'username/dataset_name')
+            selected_videos: List of selected video streams to convert
+            input_dir: Directory containing the input dataset
+            output_file: Path where the converted file should be saved
+            
+        Returns:
+            dict: Conversion result with status and metadata
+        """
+        username, foldername = repo_id.split('/')
+        video_key = selected_videos[0]
+                
+        if self.verbose:
+            click.echo(f"    Starting {self.format_name} conversion for: {repo_id}")
+            click.echo(f"    Input directory: {input_dir}")
+            click.echo(f"    Output directory: {output_dir}")
+            click.echo(f"    Selected videos: {', '.join(selected_videos)}")
+        
+    
+        # Load dataset info
+        try:
+            input_path = Path(input_dir) / username / foldername
+            episodes_dir = output_dir / "episodes"
+            episodes_dir.mkdir(exist_ok=True)
+            dataset_info = self.load_dataset_info(input_path)
+        except Exception as e:
+            click.echo(f"Error loading dataset info for {input_path}: {e}")
+            return
+    
+        # Process each episode in this dataset
+        processed_episode_count = 0
+
+        try:
+            # TODO: add proper chunking logic
+            for episode_file in sorted((input_path / "data" / "chunk-000").glob("episode_*.parquet")):
+                episode_idx = int(episode_file.stem.split('_')[1])
+                processed_episode_count += 1
+                self.total_converted_episodes += 1
+                click.echo(f"  Processing episode {episode_idx}")
+                episode_dir_name = self.convert_episode_to_vjepa2_ac(episode_idx, input_path, repo_id, video_key, episodes_dir)
+                episode_path = f"episodes/{episode_dir_name}"               
+                if episode_dir_name:            
+                    self.episode_paths.append(episode_path)
+            conversion_result = {
+                'status': 'success',
+                'repo_id': repo_id,
+                'episodes_converted': processed_episode_count,
+            }            
+            return conversion_result                
+            
+        except Exception as e:
+            error_result = {
+                'status': 'error',
+                'repo_id': repo_id,
+                'episodes_converted': 0,
+            }
+            return error_result
+        
+    
+    def load_dataset_info(dataset_path: Path) -> Dict:
+        """Load dataset info from meta/info.json"""
+        info_path = dataset_path / "meta" / "info.json"
+        if not info_path.exists():
+            raise FileNotFoundError(f"Dataset info file not found: {info_path}")
+
+        with open(info_path, 'r') as f:
+            return json.load(f)
+
+
+    def load_episode_data(dataset_path: Path, episode_idx: int) -> pd.DataFrame:
+        """Load episode data from parquet file"""
+        episode_file = dataset_path / "data" / "chunk-000" / f"episode_{episode_idx:06d}.parquet"
+        if not episode_file.exists():
+            raise FileNotFoundError(f"Episode file not found: {episode_file}")
+
+        return pd.read_parquet(episode_file)
+
+    def convert_episode_to_vjepa2_ac(self, episode_idx: int, input_path: Path, repo_id: str, video_key: str, episode_output_dir: Path):
+        """Convert a single episode to VJEPA2-AC format"""
+        try:
+            #dataset info
+            dataset_name = repo_id.replace('/', '+')
+            
+            # Load episode data
+            episode_data = self.load_episode_data(input_path, episode_idx)
+            
+            # Find corresponding video file
+            videos_dir = input_path / "videos" / "chunk-000" / video_key #only works with under 1000 videos
+            video_path = videos_dir / f"episode_{episode_idx:06d}.mp4"
+            original_dataset = repo_id
+            
+            if not video_path.exists():
+                print(f"    Warning: Video file not found: {video_path}")
+                return None
+            
+            # Create episode directory with dataset name prefix
+            episode_dir_name = f"{dataset_name}-episode_{episode_idx:03d}"
+            episode_dir = episode_output_dir / episode_dir_name
+            episode_dir.mkdir(exist_ok=True)
+            
+            # Create recordings/MP4 directory
+            recordings_dir = episode_dir / "recordings" / "MP4"
+            recordings_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Copy video file
+            output_video_path = recordings_dir / "front_camera.mp4"
+            shutil.copy2(video_path, output_video_path)
+            
+            # Create trajectory.h5
+            trajectory_path = episode_dir / "trajectory.h5"
+            self.create_trajectory_h5(episode_data, trajectory_path)
+            
+            # Create metadata.json
+            metadata = self.create_episode_metadata(episode_idx, episode_data,
+                                                trajectory_path, dataset_name, input_path, original_dataset)
+            metadata_path = episode_dir / "metadata.json"
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+            
+            print(f"    Created {episode_dir_name} with {len(episode_data)} frames")
+            
+        except Exception as e:
+            print(f"    Error processing episode {episode_idx}: {e}")
+            return None
+        
+        return episode_dir_name
+
+
+
+    def create_episode_metadata(episode_idx: int, episode_data: pd.DataFrame,
+                          trajectory_path: Path, dataset_name: str, source_dataset_path: str, original_dataset: str) -> Dict:
+        """Create metadata.json content for an episode"""
+        metadata = {
+            "episode_id": episode_idx,
+            "episode_name": f"{dataset_name}-episode_{episode_idx:03d}",
+            "source_dataset_path": source_dataset_path,
+            "original_lerobot_dataset": original_dataset,
+            "total_frames": len(episode_data),
+            "duration_seconds": len(episode_data) / 30.0,  # Assuming 30fps
+            "fps": 30,
+            "files": {
+                "trajectory": str(trajectory_path.name),
+                "video": {
+                    "front_camera": str(Path("recordings/MP4/front_camera.mp4"))
+                }
+            },
+            "data_keys": {
+                "action": {
+                    "shape": [6],
+                    "dtype": "float32",
+                    "names": [
+                        "shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos",
+                        "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"
+                    ]
+                },
+                "observation.state": {
+                    "shape": [6],
+                    "dtype": "float32", 
+                    "names": [
+                        "shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos",
+                        "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"
+                    ]
+                }
+            },
+            "task": "n/a"  # Based on the dataset
+        }
+    
+
+    def create_trajectory_h5(episode_data: pd.DataFrame, output_path: Path):
+        """Convert episode data to HDF5 trajectory format"""
+        with h5py.File(output_path, 'w') as f:
+            # Create groups for different data types
+            action_group = f.create_group('action')
+            observation_group = f.create_group('observation')
+            metadata_group = f.create_group('metadata')
+
+            # Save action data
+            if 'action' in episode_data.columns:
+                action_data = np.stack(episode_data['action'].values)
+                action_group.create_dataset('data', data=action_data)
+                
+                # Add action names if available
+                action_names = [
+                    "shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos",
+                    "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"
+                ]
+                action_group.attrs['names'] = action_names
+
+            # Save observation state data
+            if 'observation.state' in episode_data.columns:
+                obs_data = np.stack(episode_data['observation.state'].values)
+                observation_group.create_dataset('state', data=obs_data)
+                
+                # Add state names
+                state_names = [
+                    "shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos",
+                    "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"
+                ]
+                observation_group.attrs['state_names'] = state_names
+
+            # Save timestamps
+            if 'timestamp' in episode_data.columns:
+                timestamps = episode_data['timestamp'].values
+                metadata_group.create_dataset('timestamp', data=timestamps)
+
+            # Save frame indices
+            if 'frame_index' in episode_data.columns:
+                frame_indices = episode_data['frame_index'].values
+                metadata_group.create_dataset('frame_index', data=frame_indices)
+
+            # TODO: fix to add correct metadata
+            metadata_group.attrs['total_frames'] = len(episode_data)
+            metadata_group.attrs['episode_length_s'] = len(episode_data) / 30.0  # Assuming 30fps
+            metadata_group.attrs['fps'] = 30
+
+
+    def validate_input(self, input_dir: Path, selected_videos: List[str]) -> bool:
+        """
+        Validate input dataset and video streams for V-JEPA2-AC conversion.
+        
+        Args:
+            input_dir: Input directory to validate
+            selected_videos: List of video streams to validate
+            
+        Returns:
+            bool: True if input is valid, False otherwise
+        """
+        # TODO: Implement validation logic
+        # - Check if input directory exists and contains valid dataset
+        # - Verify video streams are available
+        # - Check for required metadata
+        
+        if not input_dir.exists():
+            if self.verbose:
+                click.echo(f"    ✗ Input directory does not exist: {input_dir}")
+            return False
+        
+        if not selected_videos:
+            if self.verbose:
+                click.echo(f"    ✗ No video streams selected for conversion")
+            return False
+        
+        if self.verbose:
+            click.echo(f"    ✓ Input validation passed")
+        
+        return True 
