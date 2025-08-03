@@ -96,10 +96,11 @@ class VJEPA2ACConverter:
                 for episode_path in self.converted_episode_paths:
                     f.write(f"{episode_path}\n")
             
-            print(f"\nConsolidation complete!")
-            print(f"Total episodes created: {processed_episode_count}")
-            print(f"Output directory: {output_dir}")
-            print(f"Dataset list saved to: {dataset_list_path}")
+            if self.verbose:
+                print(f"Conversion complete!")
+                print(f"Total episodes created: {processed_episode_count}")
+                print(f"Output directory: {output_dir}")
+                print(f"Dataset list saved to: {dataset_list_path}")
 
 
             conversion_result = {
@@ -173,7 +174,7 @@ class VJEPA2ACConverter:
             original_dataset = repo_id
             
             if not video_path.exists():
-                print(f"    Warning: Video file not found: {video_path}")
+                print(f"Warning: Video file not found: {video_path}")
                 return None
             
             # Create episode directory with dataset name prefix
@@ -200,10 +201,11 @@ class VJEPA2ACConverter:
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            print(f"    Created {episode_dir_name} with {len(episode_data)} frames")
+            if self.verbose:
+                print(f"=> Created {episode_dir_name} with {len(episode_data)} frames")
             
         except Exception as e:
-            print(f"    Error processing episode {episode_idx}: {e}")
+            print(f"Error processing episode {episode_idx}: {e}")
             return None
         
         return episode_dir_name
@@ -219,8 +221,7 @@ class VJEPA2ACConverter:
             "source_dataset_path": f"{source_dataset_path}",
             "original_lerobot_dataset": original_dataset,
             "total_frames": len(episode_data),
-            "duration_seconds": len(episode_data) / 30.0,  # Assuming 30fps
-            "fps": 30,
+
             "files": {
                 "trajectory": str(trajectory_path.name),
                 "video": {
@@ -303,22 +304,15 @@ class VJEPA2ACConverter:
         Returns:
             bool: True if input is valid, False otherwise
         """
-        # TODO: Implement validation logic
-        # - Check if input directory exists and contains valid dataset
-        # - Verify video streams are available
-        # - Check for required metadata
-        
+    
         if not input_dir.exists():
             if self.verbose:
-                print(f"    ✗ Input directory does not exist: {input_dir}")
+                print(f"Error: Input directory does not exist: {input_dir}")
             return False
         
         if not selected_videos:
             if self.verbose:
-                print(f"    ✗ No video streams selected for conversion")
+                print(f"Error: No video streams selected for conversion")
             return False
-        
-        if self.verbose:
-            print(f"    ✓ Input validation passed")
         
         return True 
