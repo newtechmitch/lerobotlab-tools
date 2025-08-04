@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+from . import __version__
 from .download import download_datasets, validate_download_path
 from .convert import convert_datasets, validate_output_path, validate_input_path, validate_format
 
@@ -34,44 +35,52 @@ def validate_selection_json(json_path: str) -> Dict[str, Any]:
         sys.exit(1)
     
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_path, 'r') as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON format in {json_path}: {e}", file=sys.stderr)
+        print(f"Error: Invalid JSON in '{json_path}': {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Error reading file {json_path}: {e}", file=sys.stderr)
+        print(f"Error: Cannot read file '{json_path}': {e}")
         sys.exit(1)
     
     # Validate required structure
     if not isinstance(data, dict):
-        print("Error: Selection JSON must be an object", file=sys.stderr)
+        print(f"Error: Selection file must contain a JSON object, not {type(data).__name__}")
         sys.exit(1)
     
     if 'datasets' not in data:
-        print("Error: Selection JSON must contain 'datasets' field", file=sys.stderr)
+        print("Error: Selection file must contain a 'datasets' field")
         sys.exit(1)
     
     if not isinstance(data['datasets'], list):
-        print("Error: 'datasets' field must be an array", file=sys.stderr)
+        print("Error: 'datasets' field must be an array")
+        sys.exit(1)
+    
+    if len(data['datasets']) == 0:
+        print("Error: 'datasets' array cannot be empty")
         sys.exit(1)
     
     # Validate each dataset entry
     for i, dataset in enumerate(data['datasets']):
         if not isinstance(dataset, dict):
-            print(f"Error: Dataset entry {i} must be an object", file=sys.stderr)
+            print(f"Error: Dataset {i} must be an object, not {type(dataset).__name__}")
             sys.exit(1)
         
         if 'repo_id' not in dataset:
-            print(f"Error: Dataset entry {i} missing 'repo_id' field", file=sys.stderr)
+            print(f"Error: Dataset {i} missing required 'repo_id' field")
             sys.exit(1)
         
         if 'selected_videos' not in dataset:
-            print(f"Error: Dataset entry {i} missing 'selected_videos' field", file=sys.stderr)
+            print(f"Error: Dataset {i} missing required 'selected_videos' field")
             sys.exit(1)
         
         if not isinstance(dataset['selected_videos'], list):
-            print(f"Error: Dataset entry {i} 'selected_videos' must be an array", file=sys.stderr)
+            print(f"Error: Dataset {i} 'selected_videos' must be an array")
+            sys.exit(1)
+        
+        if len(dataset['selected_videos']) == 0:
+            print(f"Error: Dataset {i} 'selected_videos' array cannot be empty")
             sys.exit(1)
     
     return data
@@ -149,10 +158,10 @@ def main():
     datasets and convert them to different formats.
     """
     parser = argparse.ArgumentParser(
-        description='LeRobotLab Tools - CLI for processing robot dataset selections',
+        description='LeRobotLab Tools - CLI for working with LeRobot datasets. Make selections at www.lerobotlab.com, export as JSON, then use this tool to download datasets and convert them to different formats for training models.',
         prog='lerobotlab'
     )
-    parser.add_argument('--version', action='version', version='lerobotlab 0.1.2')
+    parser.add_argument('--version', action='version', version=f'lerobotlab {__version__}')
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     

@@ -8,7 +8,15 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
-from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+# Check if lerobot module is installed
+try:
+    from lerobot.datasets.lerobot_dataset import LeRobotDataset
+except ImportError:
+    print("lerobotlab requires the latest version of lerobot.")
+    print('Please install it by running: "pip install git+https://github.com/huggingface/lerobot.git"')
+    sys.exit(1)
+
 
 def download_dataset(dataset_repo_id, download_dir, verbose: bool = False):
     """
