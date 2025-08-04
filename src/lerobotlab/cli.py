@@ -152,7 +152,7 @@ def main():
         description='LeRobotLab Tools - CLI for processing robot dataset selections',
         prog='lerobotlab'
     )
-    parser.add_argument('--version', action='version', version='lerobotlab 0.1.0')
+    parser.add_argument('--version', action='version', version='lerobotlab 0.1.2')
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
@@ -198,9 +198,9 @@ def main():
     )
     convert_parser.add_argument(
         '--format',
-        choices=['droid', 'vjepa2-ac'],
-        default='droid',
-        help='Output format for converted datasets (default: droid)'
+        choices=['vjepa2-ac'],
+        required=True,
+        help='Output format for converted datasets'
     )
     convert_parser.add_argument(
         '--verbose', '-v',

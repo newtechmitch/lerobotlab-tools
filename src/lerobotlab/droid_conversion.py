@@ -6,7 +6,6 @@ Handles conversion of robot datasets to DROID format for robotic learning.
 
 from pathlib import Path
 from typing import Dict, Any, List
-# Removed click dependency
 
 
 class DROIDConverter:
@@ -14,7 +13,7 @@ class DROIDConverter:
     Converter class for transforming robot datasets to DROID format.
     
     DROID is designed for distributed robot learning with visual observations
-    and continuous action spaces.
+    and supports various action spaces commonly used in robotic manipulation.
     """
     
     def __init__(self, verbose: bool = False):
@@ -27,13 +26,13 @@ class DROIDConverter:
         self.verbose = verbose
         self.format_name = "DROID"
         self.file_extension = ".droid"
-    
+        
     def convert_dataset(
         self,
         repo_id: str,
         selected_videos: List[str],
         input_dir: Path,
-        output_dir: Path
+        output_file: Path
     ) -> Dict[str, Any]:
         """
         Convert a single dataset to DROID format.
@@ -50,113 +49,103 @@ class DROIDConverter:
         if self.verbose:
             print(f"    Starting {self.format_name} conversion for: {repo_id}")
             print(f"    Input directory: {input_dir}")
-            print(f"    Output directory: {output_dir}")
+            print(f"    Output directory: {output_file}")
             print(f"    Selected videos: {', '.join(selected_videos)}")
-        
+
         try:
             # TODO: Implement actual DROID conversion logic
-            # This would include:
-            # 1. Load robot trajectory data from input_dir
+            # 1. Load episode data from LeRobot format
             # 2. Convert to DROID's action space representation
-            #    - Normalize continuous actions
-            #    - Handle different robot morphologies
-            #    - Convert coordinate systems
+            #    - Handle different action types (continuous, discrete, hybrid)
+            #    - Apply action space transformations
             # 3. Handle observation encoding for DROID's visual processing
-            #    - Resize and normalize images
-            #    - Extract relevant camera views
+            #    - Process RGB images for visual observations
             #    - Apply DROID-specific preprocessing
             # 4. Structure episodes for DROID training
-            #    - Create trajectory segments
-            #    - Add task identifiers
-            #    - Include success/failure labels
+            #    - Organize temporal sequences
+            #    - Handle episode boundaries and resets
             # 5. Save in DROID-compatible format
             #    - Use DROID's data format specification
-            #    - Include required metadata
-            #    - Maintain episode structure
-            
-            # Placeholder implementation
+            #    - Include metadata for training
+
             for video_stream in selected_videos:
                 if self.verbose:
                     print(f"      Processing video stream: {video_stream}")
-                
-                # Simulate conversion steps
-                self._process_video_stream(video_stream, input_dir, output_dir)
-            
-            # Create output directory if it doesn't exist
-            output_dir.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Simulate successful conversion
+                self._process_video_stream(video_stream, input_dir, output_file)
+
+            # Create output directory if needed
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+
             conversion_result = {
                 'status': 'success',
                 'repo_id': repo_id,
                 'format': self.format_name,
-                'output_file': str(output_dir),
+                'output_file': str(output_file),
                 'processed_videos': selected_videos,
                 'episodes_converted': self._get_placeholder_episode_count(),
                 'message': f"Successfully converted {repo_id} to {self.format_name} format"
             }
-            
+
             if self.verbose:
                 print(f"    ✓ Conversion completed: {len(selected_videos)} video streams processed")
-            
+
             return conversion_result
-            
+
         except Exception as e:
             error_result = {
                 'status': 'error',
                 'repo_id': repo_id,
                 'format': self.format_name,
-                'output_file': str(output_dir),
+                'output_file': str(output_file),
                 'processed_videos': [],
                 'episodes_converted': 0,
                 'message': f"Error converting {repo_id} to {self.format_name}: {str(e)}"
             }
-            
+
             if self.verbose:
                 print(f"    ✗ Conversion failed: {str(e)}")
-            
+
             return error_result
-    
-    def _process_video_stream(self, video_stream: str, input_dir: Path, output_file: Path) -> None:
+
+    def _process_video_stream(self, video_stream: str, input_dir: Path, output_file: Path):
         """
         Process a single video stream for DROID conversion.
         
         Args:
-            video_stream: Name of the video stream (e.g., 'observation.images.front')
+            video_stream: Name of the video stream to process
             input_dir: Input directory containing the dataset
-            output_file: Output file path
+            output_file: Output file path for converted data
         """
-        # TODO: Implement video stream processing
-        # This would include:
-        # - Loading video frames from the input dataset
-        # - Applying DROID-specific preprocessing
-        # - Converting to DROID's observation format
-        # - Handling multi-camera setups
-        
         if self.verbose:
-            print(f"        - Extracting frames from {video_stream}")
+            print(f"        - Processing {video_stream} for DROID format")
+            print(f"        - Loading frames and actions")
             print(f"        - Applying DROID preprocessing")
             print(f"        - Converting to DROID observation format")
-            print(f"        - Handling action space conversion")
-    
+
+        # TODO: Implement actual video stream processing
+        # - Load video frames from LeRobot dataset
+        # - Apply DROID-specific preprocessing
+        # - Convert action sequences to DROID format
+        # - Save processed data
+
     def _get_placeholder_episode_count(self) -> int:
-        """Get placeholder episode count for demonstration."""
-        # TODO: Replace with actual episode counting logic
-        return 75
-    
+        """Get placeholder episode count for testing."""
+        return 42  # Placeholder value
+
     def get_supported_video_streams(self) -> List[str]:
         """
         Get list of supported video stream types for DROID.
         
         Returns:
-            List of supported video stream patterns
+            List of supported video stream identifiers
         """
         return [
-            "observation.images.*",
-            "observation.videos.*",
-            "observation.camera.*"
+            "observation.images.top",
+            "observation.images.front", 
+            "observation.images.wrist",
+            "observation.images.side"
         ]
-    
+
     def validate_input(self, input_dir: Path, selected_videos: List[str]) -> bool:
         """
         Validate input dataset and video streams for DROID conversion.
@@ -172,7 +161,6 @@ class DROIDConverter:
         # - Check if input directory exists and contains valid dataset
         # - Verify video streams are available
         # - Check for required metadata
-        # - Validate action space compatibility
         
         if not input_dir.exists():
             if self.verbose:

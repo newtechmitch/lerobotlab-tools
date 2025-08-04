@@ -1,7 +1,7 @@
 """
 LeRobotLab Tools - Convert Module
 
-Handles conversion of robot datasets to different formats (DROID, V-JEPA2-AC).
+Handles conversion of robot datasets to V-JEPA2-AC format.
 """
 
 import os
@@ -52,10 +52,11 @@ def convert_datasets(
             result = converter.convert_dataset(repo_id, selected_videos, input_dir, output_dir)
             
             if result['status'] == 'error':
-                print(f"  Conversion failed")
+                print(f"Conversion failed")
             elif verbose:
                 if 'episodes_converted' in result:
-                    print(f"    Converted {result['episodes_converted']} episodes")
+                    print(f"Converted {result['episodes_converted']} episodes")
+                    print(f"Output directory: {output_dir}")
 
     except Exception as e:
         print(f"Error: Conversion failed: {e}", file=sys.stderr)
@@ -107,6 +108,7 @@ def validate_input_path(input_path: str) -> Path:
 
 
 def get_supported_formats() -> List[str]:
+    """Get all supported conversion formats (including those not yet available in CLI)."""
     return ['droid', 'vjepa2-ac']
 
 

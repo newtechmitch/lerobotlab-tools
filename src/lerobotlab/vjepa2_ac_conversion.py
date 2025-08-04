@@ -77,17 +77,16 @@ class VJEPA2ACConverter:
             return error_result
     
         # Process each episode in this dataset
-        processed_episode_count = 0
+       
 
         try:
             for episode_index in range(dataset_info["total_episodes"]):
                 episode_paths = self.get_episode_paths(dataset_info, selected_videos, episode_index)
-                print(f"  Processing episode {episode_index}")
+                print(f"Processing episode {episode_index}")
                 episode_dir_name = self.convert_episode_to_vjepa2_ac(input_path,episode_index,episode_paths, repo_id, video_key, episodes_dir)
                 converted_episode_path = f"episodes/{episode_dir_name}"               
                 if episode_dir_name:            
                     self.converted_episode_paths.append(converted_episode_path)
-                processed_episode_count += 1
                 self.total_converted_episodes += 1
 
             # Create dataset_list.txt - single file with all episodes
@@ -98,15 +97,13 @@ class VJEPA2ACConverter:
             
             if self.verbose:
                 print(f"Conversion complete!")
-                print(f"Total episodes created: {processed_episode_count}")
-                print(f"Output directory: {output_dir}")
                 print(f"Dataset list saved to: {dataset_list_path}")
 
 
             conversion_result = {
                 'status': 'success',
                 'repo_id': repo_id,
-                'episodes_converted': processed_episode_count,
+                'episodes_converted': self.total_converted_episodes,
             }  
 
             return conversion_result                

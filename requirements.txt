@@ -1,0 +1,6 @@
+# Core runtime dependencies for LeRobotLab Tools
+h5py>=3.0.0
+pandas>=1.0.0
+numpy>=1.19.0
+
+# Note: lerobot is automatically installed from source via pyproject.toml 
